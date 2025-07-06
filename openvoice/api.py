@@ -109,8 +109,6 @@ class ToneColorConverter(OpenVoiceBaseClass):
             self.watermark_model = None
         self.version = getattr(self.hps, '_version_', "v1")
 
-
-
     def extract_se(self, ref_wav_list, se_save_path=None):
         if isinstance(ref_wav_list, str):
             ref_wav_list = [ref_wav_list]
@@ -123,14 +121,18 @@ class ToneColorConverter(OpenVoiceBaseClass):
             audio_ref, sr = librosa.load(fname, sr=hps.data.sampling_rate)
             y = torch.FloatTensor(audio_ref)
             y = y.to(device)
+            print(f"Read audio torch from {fname} with shape {y.shape}")
             y = y.unsqueeze(0)
             y = spectrogram_torch(y, hps.data.filter_length,
-                                        hps.data.sampling_rate, hps.data.hop_length, hps.data.win_length,
-                                        center=False).to(device)
+                                  hps.data.sampling_rate, hps.data.hop_length, hps.data.win_length,
+                                  center=False).to(device)
+            print(f"Extracting spectrogram with shape {y.shape}")
             with torch.no_grad():
                 g = self.model.ref_enc(y.transpose(1, 2)).unsqueeze(-1)
+                print(f"Extracted SE g with shape {g.shape}")
                 gs.append(g.detach())
         gs = torch.stack(gs).mean(0)
+        print(f"Stacked SE gs mean with shape {gs.shape}")
 
         if se_save_path is not None:
             os.makedirs(os.path.dirname(se_save_path), exist_ok=True)
@@ -146,13 +148,18 @@ class ToneColorConverter(OpenVoiceBaseClass):
         
         with torch.no_grad():
             y = torch.FloatTensor(audio).to(self.device)
+            print(f"Read audio torch from {audio_src_path} with shape {y.shape}")
             y = y.unsqueeze(0)
+            print(f"Unsqueeze shape {y.shape}")
             spec = spectrogram_torch(y, hps.data.filter_length,
                                     hps.data.sampling_rate, hps.data.hop_length, hps.data.win_length,
                                     center=False).to(self.device)
+            print(f"Extracting spectrogram with shape {spec.shape}")
             spec_lengths = torch.LongTensor([spec.size(-1)]).to(self.device)
+            print(f"Spec lengths shape {spec_lengths.shape}")
             audio = self.model.voice_conversion(spec, spec_lengths, sid_src=src_se, sid_tgt=tgt_se, tau=tau)[0][
                         0, 0].data.cpu().float().numpy()
+            print(f"Converted audio with shape {audio.shape}")
             audio = self.add_watermark(audio, message)
             if output_path is None:
                 return audio

@@ -76,6 +76,9 @@ def split_audio_whisper(audio_path, audio_name, target_dir='processed'):
 
 def split_audio_vad(audio_path, audio_name, target_dir, split_seconds=10.0):
     SAMPLE_RATE = 16000
+    print(f'Processing audio: {audio_path}')
+    audio_vad = AudioSegment.from_file(audio_path)
+    print(f'input audio: {audio_path}, dur = {audio_vad.duration_seconds}, sample rate = {SAMPLE_RATE}')
     audio_vad = get_audio_tensor(audio_path)
     segments = get_vad_segments(
         audio_vad,
@@ -91,9 +94,10 @@ def split_audio_vad(audio_path, audio_name, target_dir, split_seconds=10.0):
     audio = AudioSegment.from_file(audio_path)
 
     for start_time, end_time in segments:
-        audio_active += audio[int( start_time * 1000) : int(end_time * 1000)]
+        audio_active += audio[int(start_time * 1000): int(end_time * 1000)]
     
-    audio_dur = audio_active.duration_seconds
+    # audio_dur = audio_active.duration_seconds
+    audio_dur = len(audio_active) / 1000.0
     print(f'after vad: dur = {audio_dur}')
     target_folder = os.path.join(target_dir, audio_name)
     wavs_folder = os.path.join(target_folder, 'wavs')
@@ -126,13 +130,16 @@ def hash_numpy_array(audio_path):
     base64_value = base64.b64encode(hash_value)
     return base64_value.decode('utf-8')[:16].replace('/', '_^')
 
+
 def get_se(audio_path, vc_model, target_dir='processed', vad=True):
     device = vc_model.device
     version = vc_model.version
     print("OpenVoice version:", version)
 
     audio_name = f"{os.path.basename(audio_path).rsplit('.', 1)[0]}_{version}_{hash_numpy_array(audio_path)}"
+    print(f"Audio name: {audio_name}")
     se_path = os.path.join(target_dir, audio_name, 'se.pth')
+    print(f"Extracting SE for {audio_name} from {audio_path}, saving to {se_path}")
 
     # if os.path.isfile(se_path):
     #     se = torch.load(se_path).to(device)
